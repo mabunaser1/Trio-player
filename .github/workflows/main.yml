@@ -5,14 +5,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: unzip -q TrioPlayer.zip
+        with: { fetch-depth: 0 }
+      - name: Unzip the zip that was uploaded last (any name)
+        run: |
+          z=""
+          for f in $(git log --name-only --pretty=format: -- '*.zip' | awk 'NF && !seen[$0]++'); do
+            if [ -f "$f" ]; then z="$f"; break; fi
+          done
+          if [ -z "$z" ]; then z=$(ls *.zip | head -1); fi
+          echo "Using $z"
+          unzip -o -q "$z"
+          dir=$(dirname "$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)")
+          echo "PROJECT_DIR=$dir" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: 8.9 }
-      - run: gradle assembleDebug --no-daemon
-        working-directory: TrioPlayer
+      - run: gradle assembleRelease --no-daemon
+        working-directory: ${{ env.PROJECT_DIR }}
       - uses: actions/upload-artifact@v4
         with:
-          name: TrioPlayer-debug-apk
-          path: TrioPlayer/app/build/outputs/apk/debug/app-debug.apk
+          name: TrioPlayer-apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
